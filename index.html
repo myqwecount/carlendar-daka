@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="双人打卡日历">
+<meta name="theme-color" content="#f0fdf4">
+<title>双人打卡日历</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(160deg, #f0fdf4 0%, #ffffff 45%, #fef2f2 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: #1f2937;
+    padding: 14px 12px calc(24px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .app { max-width: 520px; margin: 0 auto; }
+
+  /* ---------- 顶部标题 ---------- */
+  .hero { text-align: center; padding: 8px 0 16px; }
+  .hero h1 { font-size: 24px; font-weight: 800; letter-spacing: 0.5px; color: #111827; }
+  .hero p { font-size: 12.5px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+
+  .panel {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 12px rgba(17, 24, 39, 0.06);
+    border: 1px solid rgba(17, 24, 39, 0.04);
+  }
+
+  /* ---------- 统计区 ---------- */
+  .summary { text-align: center; padding: 18px 16px 16px; }
+  .diff { font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -0.5px; }
+  .diff-even { color: #2563eb; }
+  .diff-me { color: #16a34a; }
+  .diff-other { color: #dc2626; }
+  .diff-sub { font-size: 12.5px; color: #6b7280; margin-top: 7px; }
+  .counts {
+    display: flex; gap: 10px; margin-top: 16px;
+  }
+  .count {
+    flex: 1; border-radius: 12px; padding: 10px 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .count-me { background: #f0fdf4; }
+  .count-other { background: #fef2f2; }
+  .count .label { font-size: 12px; color: #6b7280; display: flex; align-items: center; gap: 4px; }
+  .count .num { font-size: 22px; font-weight: 800; }
+  .count-me .num { color: #16a34a; }
+  .count-other .num { color: #dc2626; }
+
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .dot-green { background: #22c55e; }
+  .dot-red { background: #ef4444; }
+  .dot-empty { background: #e5e7eb; }
+
+  /* ---------- 日历 ---------- */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-head h2 { font-size: 17px; font-weight: 700; color: #111827; }
+  .nav-btn {
+    width: 38px; height: 38px; border: none; border-radius: 11px;
+    background: #f3f4f6; color: #4b5563; font-size: 22px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: inherit; padding-bottom: 3px;
+  }
+  .nav-btn:active { background: #e5e7eb; transform: scale(0.94); }
+
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+  .weekdays span { text-align: center; font-size: 12px; color: #9ca3af; font-weight: 600; padding: 4px 0; }
+
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+  .day {
+    position: relative; aspect-ratio: 1 / 1; min-height: 42px;
+    border: 1.5px solid transparent; border-radius: 11px; background: #f9fafb;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; cursor: pointer; font-family: inherit; padding: 0;
+    transition: transform 0.12s ease, background 0.15s ease;
+  }
+  .day .num { font-size: 15px; font-weight: 600; color: #374151; line-height: 1; }
+  .day:active { transform: scale(0.92); }
+  .day.today { border-color: #3b82f6; }
+  .day.today .num { color: #2563eb; font-weight: 800; }
+  .day.blank { background: transparent; cursor: default; pointer-events: none; }
+  .day.blank .num { visibility: hidden; }
+  .day.tinted-me { background: #ecfdf3; }
+  .day.tinted-other { background: #fef2f2; }
+  .day.tinted-both { background: #fdf4ff; }
+
+  .marks { display: flex; gap: 3px; height: 13px; align-items: center; }
+  .mark {
+    width: 13px; height: 13px; border-radius: 50%; color: #fff;
+    font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .mark-green { background: #22c55e; }
+  .mark-red { background: #ef4444; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 14px; font-size: 12px; color: #6b7280; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .tip {
+    margin-top: 12px; font-size: 11.5px; line-height: 1.7; color: #9ca3af;
+    background: #f9fafb; border-radius: 10px; padding: 9px 11px;
+  }
+
+  /* ---------- 底部操作 ---------- */
+  .actions { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; border: none; border-radius: 12px; padding: 13px 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: transform 0.12s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-blue { background: #eff6ff; color: #2563eb; }
+  .btn-green { background: #ecfdf3; color: #16a34a; }
+  .btn-ghost { background: #fef2f2; color: #dc2626; }
+  .btn.full { width: 100%; flex: none; margin-bottom: 8px; }
+
+  /* ---------- 备份区 ---------- */
+  details.backup { padding: 0; overflow: hidden; }
+  details.backup summary {
+    list-style: none; cursor: pointer; padding: 15px 16px;
+    font-size: 13.5px; font-weight: 600; color: #4b5563;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  details.backup summary::-webkit-details-marker { display: none; }
+  details.backup summary::after { content: '›'; font-size: 18px; color: #9ca3af; transform: rotate(90deg); transition: transform 0.2s; }
+  details.backup[open] summary::after { transform: rotate(-90deg); }
+  .backup-body { padding: 0 16px 16px; }
+  .backup-body textarea {
+    width: 100%; min-height: 68px; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 9px 10px; font-size: 11.5px; font-family: ui-monospace, Menlo, monospace;
+    color: #4b5563; resize: vertical; margin-bottom: 8px; background: #fafafa;
+    line-height: 1.5; -webkit-user-select: text; user-select: text;
+  }
+  .backup-body textarea:focus { outline: 2px solid #bfdbfe; border-color: transparent; }
+  .hint { font-size: 11.5px; color: #9ca3af; line-height: 1.6; margin-bottom: 8px; }
+
+  .foot { text-align: center; font-size: 11px; color: #b6bcc6; padding: 4px 0 8px; }
+
+  /* ---------- 存储不可用警告 ---------- */
+  .warn {
+    background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 12px; padding: 11px 13px; font-size: 12.5px;
+    line-height: 1.6; margin-bottom: 12px;
+  }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(17, 24, 39, 0.9); color: #fff; font-size: 13px;
+    padding: 9px 18px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s; z-index: 99; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 360px) {
+    .day .num { font-size: 13.5px; }
+    .marks { height: 11px; }
+    .mark { width: 11px; height: 11px; font-size: 7.5px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hero">
+    <h1>双人打卡日历</h1>
+    <p>点日期打勾 · 自动算天数差 · 数据只存在本机</p>
+  </header>
+
+  <div id="warnBox"></div>
+
+  <section class="panel summary">
+    <div class="diff diff-even" id="diffText">相差 0 天</div>
+    <div class="diff-sub" id="diffSub">还没有任何记录，点日历上的日期开始打勾吧</div>
+    <div class="counts">
+      <div class="count count-me">
+        <span class="label"><i class="dot dot-green"></i>我完成</span>
+        <span class="num" id="myCount">0</span>
+      </div>
+      <div class="count count-other">
+        <span class="label"><i class="dot dot-red"></i>对方完成</span>
+        <span class="num" id="otherCount">0</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="cal-head">
+      <button class="nav-btn" id="prevMonth" aria-label="上个月">‹</button>
+      <h2 id="currentMonth"></h2>
+      <button class="nav-btn" id="nextMonth" aria-label="下个月">›</button>
+    </div>
+    <div class="weekdays">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="days" id="calendarGrid"></div>
+    <div class="legend">
+      <span><i class="dot dot-green"></i>我完成</span>
+      <span><i class="dot dot-red"></i>对方完成</span>
+      <span><i class="dot dot-empty"></i>都没完成</span>
+    </div>
+    <div class="tip">轻点日期循环切换：<b>第 1 下</b>＝我完成（绿勾）→ <b>第 2 下</b>＝对方完成（红勾）→ <b>第 3 下</b>＝两人都完成（双勾）→ <b>第 4 下</b>＝取消</div>
+  </section>
+
+  <section class="actions">
+    <button class="btn btn-blue" id="goToToday">回到今天</button>
+    <button class="btn btn-ghost" id="clearData">清空数据</button>
+  </section>
+
+  <details class="panel backup">
+    <summary>备份 / 恢复数据</summary>
+    <div class="backup-body">
+      <p class="hint">换手机、清理浏览器数据前，先在这里生成一段备份文本（长按全选复制，存到备忘录或发给自己），需要时再粘贴回来恢复。</p>
+      <button class="btn btn-blue full" id="exportBtn">生成备份文本</button>
+      <textarea id="exportArea" readonly placeholder="点上面按钮生成备份文本，长按全选复制"></textarea>
+      <textarea id="importArea" placeholder="把之前备份的文本粘贴到这里"></textarea>
+      <button class="btn btn-green full" id="importBtn">恢复这份备份</button>
+    </div>
+  </details>
+
+  <p class="foot">数据仅保存在本机浏览器，不会上传到任何服务器</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORE_KEY = 'checkCalendarData';
+
+  /* ---------- 本地存储可用性检测（Safari 无痕模式会禁用） ---------- */
+  var storageOK = true;
+  try {
+    window.localStorage.setItem('__probe__', '1');
+    window.localStorage.removeItem('__probe__');
+  } catch (e) {
+    storageOK = false;
+  }
+
+  var checkData = {};
+  if (storageOK) {
+    try {
+      checkData = JSON.parse(window.localStorage.getItem(STORE_KEY) || '{}') || {};
+    } catch (e) {
+      checkData = {};
+    }
+  }
+
+  /* ---------- DOM ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var calendarGrid = $('calendarGrid');
+  var currentMonthEl = $('currentMonth');
+  var myCountEl = $('myCount');
+  var otherCountEl = $('otherCount');
+  var diffTextEl = $('diffText');
+  var diffSubEl = $('diffSub');
+  var toastEl = $('toast');
+  var warnBox = $('warnBox');
+
+  if (!storageOK) {
+    warnBox.innerHTML = '<div class="warn"><b>当前环境无法保存数据</b><br>请关闭浏览器的「无痕 / 隐私浏览」模式后再打开本页面，否则打勾记录关掉后会丢失。</div>';
+  }
+
+  /* ---------- 工具函数 ---------- */
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  var currentDate = new Date();
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function dateKey(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
+
+  function save() {
+    if (!storageOK) return;
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(checkData));
+    } catch (e) { /* 忽略写入失败 */ }
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1600);
+  }
+
+  /* ---------- 渲染日历 ---------- */
+  function renderCalendar() {
+    var year = currentDate.getFullYear();
+    var month = currentDate.getMonth();
+
+    currentMonthEl.textContent = year + ' 年 ' + (month + 1) + ' 月';
+    calendarGrid.innerHTML = '';
+
+    var firstWeekday = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var prevMonthDays = new Date(year, month, 0).getDate();
+
+    var i, cell;
+
+    // 上月补位
+    for (i = firstWeekday - 1; i >= 0; i--) {
+      cell = document.createElement('div');
+      cell.className = 'day blank';
+      cell.innerHTML = '<span class="num">' + (prevMonthDays - i) + '</span>';
+      calendarGrid.appendChild(cell);
+    }
+
+    // 当月
+    for (var d = 1; d <= daysInMonth; d++) {
+      var key = dateKey(year, month, d);
+      var status = checkData[key];
+
+      cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'day';
+      cell.setAttribute('data-date', key);
+
+      var isToday = (year === today.getFullYear() && month === today.getMonth() && d === today.getDate());
+      if (isToday) cell.classList.add('today');
+
+      var marksHtml = '';
+      var hasMe = (status === 'me' || status === 'both');
+      var hasOther = (status === 'other' || status === 'both');
+
+      if (hasMe && hasOther) {
+        cell.classList.add('tinted-both');
+        marksHtml = '<span class="marks"><i class="mark mark-green">✓</i><i class="mark mark-red">✓</i></span>';
+      } else if (hasMe) {
+        cell.classList.add('tinted-me');
+        marksHtml = '<span class="marks"><i class="mark mark-green">✓</i></span>';
+      } else if (hasOther) {
+        cell.classList.add('tinted-other');
+        marksHtml = '<span class="marks"><i class="mark mark-red">✓</i></span>';
+      }
+
+      cell.innerHTML = '<span class="num">' + d + '</span>' + marksHtml;
+
+      if (isToday) cell.setAttribute('aria-label', d + ' 日（今天）');
+      cell.addEventListener('click', (function (k) {
+        return function () { cycleStatus(k); };
+      })(key));
+
+      calendarGrid.appendChild(cell);
+    }
+
+    // 下月补位，凑满整行
+    var totalCells = firstWeekday + daysInMonth;
+    var remaining = (7 - (totalCells % 7)) % 7;
+    for (i = 1; i <= remaining; i++) {
+      cell = document.createElement('div');
+      cell.className = 'day blank';
+      cell.innerHTML = '<span class="num">' + i + '</span>';
+      calendarGrid.appendChild(cell);
+    }
+
+    updateStats();
+  }
+
+  /* ---------- 点击循环：无 → 我 → 对方 → 都 → 无 ---------- */
+  function cycleStatus(key) {
+    var cur = checkData[key];
+    var next;
+    if (!cur) next = 'me';
+    else if (cur === 'me') next = 'other';
+    else if (cur === 'other') next = 'both';
+    else next = null;
+
+    if (next) checkData[key] = next;
+    else delete checkData[key];
+
+    save();
+    renderCalendar();
+  }
+
+  /* ---------- 统计 ---------- */
+  function updateStats() {
+    var my = 0, other = 0;
+    for (var k in checkData) {
+      if (!Object.prototype.hasOwnProperty.call(checkData, k)) continue;
+      var v = checkData[k];
+      if (v === 'me' || v === 'both') my++;
+      if (v === 'other' || v === 'both') other++;
+    }
+
+    myCountEl.textContent = my;
+    otherCountEl.textContent = other;
+
+    var diff = my - other;
+
+    if (diff === 0) {
+      diffTextEl.textContent = '相差 0 天';
+      diffTextEl.className = 'diff diff-even';
+      diffSubEl.textContent = (my === 0 && other === 0)
+        ? '还没有任何记录，点日历上的日期开始打勾吧'
+        : '我和对方完成的天数一样多 🎉';
+    } else if (diff > 0) {
+      diffTextEl.textContent = '我多 ' + diff + ' 天';
+      diffTextEl.className = 'diff diff-me';
+      diffSubEl.textContent = '我完成 ' + my + ' 天，对方完成 ' + other + ' 天';
+    } else {
+      diffTextEl.textContent = '对方多 ' + (-diff) + ' 天';
+      diffTextEl.className = 'diff diff-other';
+      diffSubEl.textContent = '我完成 ' + my + ' 天，对方完成 ' + other + ' 天';
+    }
+  }
+
+  /* ---------- 月份切换 ---------- */
+  $('prevMonth').addEventListener('click', function () {
+    currentDate.setDate(1);
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  });
+
+  $('nextMonth').addEventListener('click', function () {
+    currentDate.setDate(1);
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  /* ---------- 回到今天 ---------- */
+  $('goToToday').addEventListener('click', function () {
+    currentDate = new Date();
+    renderCalendar();
+    toast('已回到今天');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  /* ---------- 清空数据 ---------- */
+  $('clearData').addEventListener('click', function () {
+    if (window.confirm('确定要清空所有打卡记录吗？此操作不可恢复，建议先做一次备份。')) {
+      checkData = {};
+      save();
+      if (storageOK) {
+        try { window.localStorage.removeItem(STORE_KEY); } catch (e) {}
+      }
+      renderCalendar();
+      toast('已清空全部记录');
+    }
+  });
+
+  /* ---------- 备份 / 恢复 ---------- */
+  var exportArea = $('exportArea');
+  var importArea = $('importArea');
+
+  $('exportBtn').addEventListener('click', function () {
+    if (!Object.keys(checkData).length) {
+      toast('还没有记录可备份');
+      return;
+    }
+    exportArea.value = JSON.stringify(checkData);
+    exportArea.focus();
+    exportArea.select();
+    toast('已生成，长按全选复制');
+  });
+
+  $('importBtn').addEventListener('click', function () {
+    var raw = importArea.value.trim();
+    if (!raw) { toast('请先粘贴备份文本'); return; }
+
+    var obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (e) {
+      toast('文本格式不对，请检查');
+      return;
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      toast('文本内容不是有效的备份');
+      return;
+    }
+
+    var count = 0;
+    var clean = {};
+    var re = /^\d{4}-\d{2}-\d{2}$/;
+    for (var k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      if (re.test(k) && (obj[k] === 'me' || obj[k] === 'other' || obj[k] === 'both')) {
+        clean[k] = obj[k];
+        count++;
+      }
+    }
+    if (!count) { toast('没有识别到有效的打卡记录'); return; }
+
+    checkData = clean;
+    save();
+    renderCalendar();
+    importArea.value = '';
+    toast('已恢复 ' + count + ' 天记录');
+  });
+
+  /* ---------- 启动 ---------- */
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
